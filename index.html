@@ -75,11 +75,11 @@
                     </div>
 
                     <!-- 내 이름 선택 (명단 드롭다운) -->
+                    <!-- 내 이름 입력 (실명 직접 입력) -->
                     <div>
                         <label for="authorName" class="block text-xs font-bold text-slate-600 mb-1.5">2. 내 이름 (실명)</label>
-                        <select id="authorName" required class="w-full px-3.5 py-2.5 bg-amber-50/50 border-2 border-amber-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-amber-400 focus:bg-white transition">
-                            <option value="">이름을 선택하세요</option>
-                        </select>
+                        <input type="text" id="authorName" required maxlength="10" placeholder="예) ㅇㅇㅇ"
+                            class="w-full px-3.5 py-2.5 bg-amber-50/50 border-2 border-amber-100 rounded-2xl text-sm font-medium focus:outline-none focus:border-amber-400 focus:bg-white transition">
                     </div>
 
                     <!-- 응원 받을 후배 학년 -->
@@ -229,20 +229,363 @@
     <script>
         /**
          * [선생님 설정 영역]
-         * 1. GOOGLE_SCRIPT_URL: 구글 스프레드시트 Apps Script(Code.gs) 배포 후 받은 웹 앱 URL을 따옴표 안에 붙여넣으세요.
-         *    (예: const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycb.../exec';)
+         * 1. GOOGLE_SCRIPT_URL: 구글 스프레드시트 Apps Script(Code.gs) 배포 후 받은 웹 앱 URL
          * 2. ADMIN_PASSWORD: 선생님 관리 모드 비밀번호를 원하는 숫자로 바꾸세요.
-         * 3. studentRoster: 우리 학교 학년별 실제 학생 이름을 적어주세요.
          */
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZ_MZBq2rUHJLq3zA19H1a7suX7-q-IHfNiALDKC_0szPGiXkRF2DUIA4U2IlKLp2sEQ/exec';
         const ADMIN_PASSWORD = '1234';
 
-        const studentRoster = {
-            '1학년': ['ㅇㅇㅇ(1학년 학생1)', 'ㅇㅇㅇ(1학년 학생2)', 'ㅇㅇㅇ(1학년 학생3)'],
-            '2학년': ['ㅇㅇㅇ(2학년 학생1)', 'ㅇㅇㅇ(2학년 학생2)', 'ㅇㅇㅇ(2학년 학생3)'],
-            '3학년': ['ㅇㅇㅇ(3학년 학생1)', 'ㅇㅇㅇ(3학년 학생2)', 'ㅇㅇㅇ(3학년 학생3)'],
-            '4학년': ['ㅇㅇㅇ(4학년 학생1)', 'ㅇㅇㅇ(4학년 학생2)', 'ㅇㅇㅇ(4학년 학생3)'],
-            '5학년': ['ㅇㅇㅇ(5학년 학생1)', 'ㅇㅇㅇ(5학년 학생2)', 'ㅇㅇㅇ(5학년 학생3)'],
-            '6학년': ['ㅇㅇㅇ(6학년 학생1)', 'ㅇㅇㅇ(6학년 학생2)', 'ㅇㅇㅇ(6학년 학생3)']
+        // 학년별 꾸밈 스타일 및 이모지 설정
+        const gradeStyles = {
+            '1학년': { badge: 'bg-yellow-100 text-yellow-800 border-yellow-200', border: 'border-yellow-200', emoji: '🐥' },
+            '2학년': { badge: 'bg-pink-100 text-pink-800 border-pink-200', border: 'border-pink-200', emoji: '🐰' },
+            '3학년': { badge: 'bg-sky-100 text-sky-800 border-sky-200', border: 'border-sky-200', emoji: '🐶' },
+            '4학년': { badge: 'bg-orange-100 text-orange-800 border-orange-200', border: 'border-orange-200', emoji: '🦊' },
+            '5학년': { badge: 'bg-amber-100 text-amber-800 border-amber-200', border: 'border-amber-200', emoji: '🐻' },
+            '6학년': { badge: 'bg-purple-100 text-purple-800 border-purple-200', border: 'border-purple-200', emoji: '👑' }
         };
-// ... existing code ... -->
+
+        // 기본 예시 데이터 (시트가 비어있거나 오프라인 테스트 시 표시)
+        const defaultAdvices = [
+            {
+                id: 'sample-1',
+                author: 'ㅇㅇㅇ (2학년)',
+                grade: '1학년',
+                category: '학교생활 꿀팁',
+                content: '1학년 후배들아 입학 축하해! 쉬는 시간에 화장실 미리 다녀오고, 급식실에서 질서 잘 지키면 선생님이 칭찬 스티커 많이 주셔!',
+                date: '2026-02-20',
+                likes: 12
+            },
+            {
+                id: 'sample-2',
+                author: 'ㅇㅇㅇ (3학년)',
+                grade: '2학년',
+                category: '공부 & 숙제 비법',
+                content: '2학년 때는 구구단을 외우는 게 제일 중요해! 놀이처럼 노래로 외우면 수학 시간이 정말 즐거워질 거야. 파이팅!',
+                date: '2026-02-20',
+                likes: 15
+            },
+            {
+                id: 'sample-3',
+                author: 'ㅇㅇㅇ (4학년)',
+                grade: '3학년',
+                category: '준비물 & 급식 꿀팁',
+                content: '3학년이 되면 사회, 과학, 영어 과목이 새로 생기고 리코더도 불어! 리코더 이름표 꼭 붙여서 다니렴.',
+                date: '2026-02-21',
+                likes: 19
+            }
+        ];
+
+        // 상태 변수
+        let advices = [];
+        let currentGrade = 'ALL';
+        let searchQuery = '';
+        let isAdminMode = false;
+        let pendingDeleteId = null;
+
+        // DOM 요소
+        const adviceForm = document.getElementById('adviceForm');
+        const authorGradeSelect = document.getElementById('authorGrade');
+        const authorNameInput = document.getElementById('authorName');
+        const targetGradeSelect = document.getElementById('targetGrade');
+        const categorySelect = document.getElementById('category');
+        const adviceContentInput = document.getElementById('adviceContent');
+        const adviceGrid = document.getElementById('adviceGrid');
+        const loadingState = document.getElementById('loadingState');
+        const emptyState = document.getElementById('emptyState');
+        const searchInput = document.getElementById('searchInput');
+        const gradeTabs = document.querySelectorAll('.grade-tab');
+        const toastEl = document.getElementById('toast');
+
+        // 관리자 및 삭제 모달 요소
+        const adminToggleBtn = document.getElementById('adminToggleBtn');
+        const adminBtnText = document.getElementById('adminBtnText');
+        const adminModal = document.getElementById('adminModal');
+        const adminPasswordInput = document.getElementById('adminPasswordInput');
+        const cancelAdminBtn = document.getElementById('cancelAdminBtn');
+        const confirmAdminBtn = document.getElementById('confirmAdminBtn');
+        const deleteModal = document.getElementById('deleteModal');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+        // 토스트 알림 함수
+        function showToast(message, type = 'success') {
+            toastEl.textContent = message;
+            toastEl.className = `fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-white text-sm font-bold transition-all ${
+                type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'
+            }`;
+            toastEl.classList.remove('hidden');
+            setTimeout(() => {
+                toastEl.classList.add('hidden');
+            }, 2800);
+        }
+
+        // HTML 이스케이프 (XSS 방지)
+        function escapeHTML(str) {
+            return String(str).replace(/[&<>"']/g, match => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[match]));
+        }
+
+        // 구글 스프레드시트에서 데이터 불러오기
+        async function fetchAdvices() {
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('여기에_')) {
+                advices = [...defaultAdvices];
+                renderAdvices();
+                return;
+            }
+
+            loadingState.classList.remove('hidden');
+            adviceGrid.innerHTML = '';
+            emptyState.classList.add('hidden');
+
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    // 최신 글이 위로 오도록 역순 정렬
+                    advices = result.data.reverse();
+                    if (advices.length === 0) {
+                        advices = [...defaultAdvices];
+                    }
+                } else {
+                    advices = [...defaultAdvices];
+                }
+            } catch (error) {
+                console.error('데이터 불러오기 오류:', error);
+                advices = [...defaultAdvices];
+            } finally {
+                loadingState.classList.add('hidden');
+                renderAdvices();
+            }
+        }
+
+        // 게시판 카드 렌더링
+        function renderAdvices() {
+            const filtered = advices.filter(item => {
+                const matchGrade = currentGrade === 'ALL' || item.grade === currentGrade;
+                const keyword = searchQuery.toLowerCase();
+                const matchSearch = !keyword ||
+                    String(item.author).toLowerCase().includes(keyword) ||
+                    String(item.content).toLowerCase().includes(keyword) ||
+                    String(item.category).toLowerCase().includes(keyword);
+                return matchGrade && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                adviceGrid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            adviceGrid.innerHTML = filtered.map(item => {
+                const style = gradeStyles[item.grade] || gradeStyles['1학년'];
+                const isSample = String(item.id).startsWith('sample-');
+                const deleteBtnHTML = (isAdminMode && !isSample)
+                    ? `<button type="button" onclick="openDeleteModal('${item.id}')" class="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-xs transition">🗑️ 삭제</button>`
+                    : '';
+
+                return `
+                    <article class="bg-white rounded-3xl p-5 shadow-sm border-2 ${style.border} flex flex-col justify-between hover:shadow-md transition">
+                        <div>
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${style.badge}">
+                                    <span>${style.emoji}</span>
+                                    <span>${escapeHTML(item.grade)} 후배에게</span>
+                                </span>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                                        ${escapeHTML(item.category)}
+                                    </span>
+                                    ${deleteBtnHTML}
+                                </div>
+                            </div>
+                            <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 break-words">
+                                ${escapeHTML(item.content)}
+                            </p>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <div>
+                                <p class="font-bold text-slate-800">✍️ ${escapeHTML(item.author)}</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">${escapeHTML(item.date)}</p>
+                            </div>
+                            <button type="button" onclick="handleLike('${item.id}')"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold transition active:scale-95">
+                                <span>❤️ 최고예요</span>
+                                <span>${item.likes || 0}</span>
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // 새 응원 쪽지 등록
+        adviceForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const grade = authorGradeSelect.value;
+            const rawName = authorNameInput.value.trim();
+            const targetGrade = targetGradeSelect.value;
+            const category = categorySelect.value;
+            const content = adviceContentInput.value.trim();
+
+            if (!rawName) {
+                showToast('내 이름을 입력해 주세요!', 'error');
+                authorNameInput.focus();
+                return;
+            }
+            if (!content) {
+                showToast('응원 메시지를 적어 주세요!', 'error');
+                adviceContentInput.focus();
+                return;
+            }
+
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const newPost = {
+                id: 'msg-' + Date.now(),
+                author: `${rawName} (${grade})`,
+                grade: targetGrade,
+                category: category,
+                content: content,
+                date: dateStr,
+                likes: 0
+            };
+
+            // 예시 데이터만 있었다면 제거 후 새 글 추가
+            advices = [newPost, ...advices.filter(item => !String(item.id).startsWith('sample-'))];
+            authorNameInput.value = '';
+            adviceContentInput.value = '';
+            renderAdvices();
+            showToast('따뜻한 응원 쪽지가 등록되었어요! 🎉');
+
+            // 구글 스프레드시트 전송
+            if (GOOGLE_SCRIPT_URL && !GOOGLE_SCRIPT_URL.includes('여기에_')) {
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'add', ...newPost })
+                    });
+                } catch (err) {
+                    console.error('저장 실패:', err);
+                }
+            }
+        });
+
+        // '최고예요' 좋아요 클릭
+        window.handleLike = async function(id) {
+            const target = advices.find(item => String(item.id) === String(id));
+            if (!target) return;
+
+            target.likes = (Number(target.likes) || 0) + 1;
+            renderAdvices();
+
+            if (!String(id).startsWith('sample-') && GOOGLE_SCRIPT_URL && !GOOGLE_SCRIPT_URL.includes('여기에_')) {
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'like', id: id, likes: target.likes })
+                    });
+                } catch (err) {
+                    console.error('좋아요 업데이트 실패:', err);
+                }
+            }
+        };
+
+        // 학년별 탭 전환
+        gradeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                gradeTabs.forEach(t => {
+                    t.classList.remove('active', 'bg-amber-500', 'text-white', 'shadow-sm');
+                    t.classList.add('bg-amber-50', 'text-slate-600');
+                });
+                tab.classList.add('active', 'bg-amber-500', 'text-white', 'shadow-sm');
+                tab.classList.remove('bg-amber-50', 'text-slate-600');
+
+                currentGrade = tab.dataset.grade;
+                renderAdvices();
+            });
+        });
+
+        // 검색 입력
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.trim();
+            renderAdvices();
+        });
+
+        // 선생님 관리 모드 토글
+        adminToggleBtn.addEventListener('click', () => {
+            if (isAdminMode) {
+                isAdminMode = false;
+                adminBtnText.textContent = '선생님 관리';
+                adminToggleBtn.classList.remove('bg-rose-100', 'text-rose-700');
+                adminToggleBtn.classList.add('bg-slate-200/80', 'text-slate-700');
+                renderAdvices();
+                showToast('선생님 관리 모드가 종료되었습니다.');
+            } else {
+                adminPasswordInput.value = '';
+                adminModal.classList.remove('hidden');
+                adminPasswordInput.focus();
+            }
+        });
+
+        cancelAdminBtn.addEventListener('click', () => adminModal.classList.add('hidden'));
+
+        confirmAdminBtn.addEventListener('click', () => {
+            if (adminPasswordInput.value === ADMIN_PASSWORD) {
+                isAdminMode = true;
+                adminModal.classList.add('hidden');
+                adminBtnText.textContent = '관리 모드 종료';
+                adminToggleBtn.classList.remove('bg-slate-200/80', 'text-slate-700');
+                adminToggleBtn.classList.add('bg-rose-100', 'text-rose-700');
+                renderAdvices();
+                showToast('선생님 관리 모드가 켜졌습니다. 각 쪽지에서 삭제할 수 있습니다.');
+            } else {
+                showToast('비밀번호가 일치하지 않습니다.', 'error');
+            }
+        });
+
+        adminPasswordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') confirmAdminBtn.click();
+        });
+
+        // 삭제 모달 열기 및 실행
+        window.openDeleteModal = function(id) {
+            pendingDeleteId = id;
+            deleteModal.classList.remove('hidden');
+        };
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            pendingDeleteId = null;
+            deleteModal.classList.add('hidden');
+        });
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!pendingDeleteId) return;
+            const targetId = pendingDeleteId;
+            deleteModal.classList.add('hidden');
+
+            advices = advices.filter(item => String(item.id) !== String(targetId));
+            renderAdvices();
+            showToast('쪽지가 삭제되었습니다.');
+
+            if (GOOGLE_SCRIPT_URL && !GOOGLE_SCRIPT_URL.includes('여기에_')) {
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'delete', id: targetId })
+                    });
+                } catch (err) {
+                    console.error('삭제 동기화 실패:', err);
+                }
+            }
+            pendingDeleteId = null;
+        });
+
+        // 초기 실행
+        window.addEventListener('DOMContentLoaded', fetchAdvices);
+    </script>
+</body>
+</html>
